@@ -1,3 +1,5 @@
+import java.util.Set;
+
 public class Main {
     public static void main(String[] args) {
         System.out.println("Тестирование record User");
@@ -13,11 +15,20 @@ public class Main {
         testInvalidPermissionResource();
         testInvalidPermissionDescription();
         testPermissionMatches();
+
+        System.out.println("\nТестирование class Role");
+        testSuccessfulRole();
+        testDuplicateRoleName();
+        testAddRemovePermissions();
+        testHasPermission();
+        testGetPermissions();
+        testEqualsAndHashCode();
+        testFormat();
     }
 
 
     private static void testSuccessfulCreation() {
-        System.out.println("\nТест 1: Успешное создание");
+        System.out.println("\nТест 1: Успешное создание User");
         try {
             User user = User.validate("pudovkinigor", "Pudovkin Igor", "pudovkinigor@gmail.com");
             System.out.println("Успех: " + user.format());
@@ -29,7 +40,7 @@ public class Main {
     private static void testInvalidUsername() {
         System.out.println("\nТест 2: Неверный username");
         try {
-            User user = User.validate("_", "Pudovkin Igor", "pudovkinigor@gmail.com");
+            User user = User.validate("_", "John Doe", "john@example.com");
             System.out.println("Успех: " + user.format());
         } catch (IllegalArgumentException e) {
             System.out.println("Ожидаемая ошибка: " + e.getMessage());
@@ -135,5 +146,154 @@ public class Main {
         System.out.println("Поиск по 'READ' и 'reports': " + perm.matches("READ", "reports"));
         System.out.println("Поиск по части 'REA': " + perm.matches("REA", null));
         System.out.println("Поиск по части 'ser': " + perm.matches(null, "ser"));
+    }
+
+
+    private static void testSuccessfulRole() {
+        System.out.println("\nТест 12: Успешное создание Role");
+        try {
+            Role.resetExistingNames();
+
+            Role role1 = new Role("Administrator", "Полный доступ к системе");
+            Role role2 = new Role("Manager", "Доступ к управлению");
+
+            System.out.println("Успех: " + role1.getName() + " с ID: " + role1.getId());
+            System.out.println("Успех: " + role2.getName() + " с ID: " + role2.getId());
+            System.out.println("ID разные: " + !role1.getId().equals(role2.getId()));
+        } catch (IllegalArgumentException e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+    private static void testDuplicateRoleName() {
+        System.out.println("\nТест 13: Дубликат имени роли");
+        try {
+            Role.resetExistingNames();
+
+            Role role1 = new Role("Admin", "Первый админ");
+            System.out.println("Создана: " + role1.getName());
+
+            Role role2 = new Role("Admin", "Второй админ");
+            System.out.println("Создана: " + role2.getName());
+        } catch (IllegalArgumentException e) {
+            System.out.println("Ожидаемая ошибка: " + e.getMessage());
+        }
+    }
+
+    private static void testAddRemovePermissions() {
+        System.out.println("\nТест 14: Добавление и удаление прав");
+        try {
+            Role.resetExistingNames();
+
+            Role role = new Role("Editor", "Редактор");
+            Permission read = new Permission("READ", "articles", "Читать статьи");
+            Permission write = new Permission("WRITE", "articles", "Писать статьи");
+            Permission delete = new Permission("DELETE", "articles", "Удалять статьи");
+
+            System.out.println("Роль: " + role.getName());
+            System.out.println("Прав до добавления: " + role.getPermissions().size());
+
+            role.addPermission(read);
+            role.addPermission(write);
+            System.out.println("После добавления 2 прав: " + role.getPermissions().size());
+
+            role.removePermission(read);
+            System.out.println("После удаления read: " + role.getPermissions().size());
+
+            role.addPermission(delete);
+            System.out.println("После добавления delete: " + role.getPermissions().size());
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+    private static void testHasPermission() {
+        System.out.println("\nТест 15: Проверка наличия прав");
+        try {
+            Role.resetExistingNames();
+
+            Role role = new Role("Viewer", "Просмотрщик");
+            Permission readUsers = new Permission("READ", "users", "Читать пользователей");
+            Permission readReports = new Permission("READ", "reports", "Читать отчеты");
+
+            role.addPermission(readUsers);
+
+            System.out.println("Есть READ на users: " +
+                    role.hasPermission(new Permission("READ", "users", "любое описание")));
+            System.out.println("Есть READ на reports: " +
+                    role.hasPermission("READ", "reports"));
+            System.out.println("Есть WRITE на users: " +
+                    role.hasPermission("WRITE", "users"));
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+    private static void testGetPermissions() {
+        System.out.println("\nТест 16: Неизменяемая копия прав");
+        try {
+            Role.resetExistingNames();
+
+            Role role = new Role("Tester", "Тестировщик");
+            Permission perm = new Permission("TEST", "all", "Тестировать всё");
+
+            role.addPermission(perm);
+
+            Set<Permission> perms = role.getPermissions();
+            System.out.println("Размер копии: " + perms.size());
+
+            try {
+                perms.add(new Permission("NEW", "new", "новое"));
+                System.out.println("Удалось добавить (не должно быть)");
+            } catch (UnsupportedOperationException e) {
+                System.out.println("Нельзя изменить копию - ожидаемо");
+            }
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+    private static void testEqualsAndHashCode() {
+        System.out.println("\nТест 17: equals и hashCode");
+        try {
+            Role.resetExistingNames();
+
+            Role role1 = new Role("Role1", "Описание 1");
+            Role role2 = new Role("Role2", "Описание 2");
+
+            // Создаем еще одну роль с тем же ID (для теста через рефлексию не будем)
+            System.out.println("role1.equals(role2): " + role1.equals(role2));
+            System.out.println("role1.equals(role1): " + role1.equals(role1));
+            System.out.println("hashCode role1: " + role1.hashCode());
+            System.out.println("hashCode role2: " + role2.hashCode());
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+    private static void testFormat() {
+        System.out.println("\nТест 18: Метод format()");
+        try {
+            Role.resetExistingNames();
+
+            Role role = new Role("SuperAdmin", "Супер администратор");
+
+            Permission p1 = new Permission("READ", "users", "Просмотр пользователей");
+            Permission p2 = new Permission("WRITE", "users", "Редактирование пользователей");
+            Permission p3 = new Permission("DELETE", "users", "Удаление пользователей");
+
+            role.addPermission(p1);
+            role.addPermission(p2);
+            role.addPermission(p3);
+
+            System.out.println("\n" + role.format());
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
     }
 }
