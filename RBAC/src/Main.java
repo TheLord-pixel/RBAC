@@ -1,3 +1,5 @@
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
 
 public class Main {
@@ -24,6 +26,15 @@ public class Main {
         testGetPermissions();
         testEqualsAndHashCode();
         testFormat();
+
+        System.out.println("\nТестирование AssignmentMetadata");
+        testAssignmentMetadata();
+
+        System.out.println("\nТестирование PermanentAssignment");
+        testPermanentAssignment();
+
+        System.out.println("\nТестирование TemporaryAssignment");
+        testTemporaryAssignment();
     }
 
 
@@ -264,7 +275,6 @@ public class Main {
             Role role1 = new Role("Role1", "Описание 1");
             Role role2 = new Role("Role2", "Описание 2");
 
-            // Создаем еще одну роль с тем же ID (для теста через рефлексию не будем)
             System.out.println("role1.equals(role2): " + role1.equals(role2));
             System.out.println("role1.equals(role1): " + role1.equals(role1));
             System.out.println("hashCode role1: " + role1.hashCode());
@@ -276,7 +286,7 @@ public class Main {
     }
 
     private static void testFormat() {
-        System.out.println("\nТест 18: Метод format()");
+        System.out.println("\nТест 18: Метод format() у Role");
         try {
             Role.resetExistingNames();
 
@@ -291,6 +301,80 @@ public class Main {
             role.addPermission(p3);
 
             System.out.println("\n" + role.format());
+
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+
+    private static void testAssignmentMetadata() {
+        System.out.println("\nТест 19: AssignmentMetadata");
+
+        try {
+            AssignmentMetadata meta1 = new AssignmentMetadata("admin", "2026-02-17T01:00:00", "Тестовое назначение");
+            System.out.println("meta1: " + meta1.format());
+
+            AssignmentMetadata meta2 = AssignmentMetadata.now("pudovkinigor", "Срочное назначение");
+            System.out.println("meta2 (now): " + meta2.format());
+
+            AssignmentMetadata meta3 = new AssignmentMetadata("admin", "2026-02-17T02:00:00", null);
+            System.out.println("meta3 (без причины): " + meta3.format());
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+
+    private static void testPermanentAssignment() {
+        System.out.println("\nТест 20: PermanentAssignment");
+
+        try {
+            Role.resetExistingNames();
+
+            User user = User.validate("pudovkinigor", "Pudovkin Igor", "igor@mail.com");
+            Role role = new Role("Admin", "Администратор");
+            AssignmentMetadata meta = AssignmentMetadata.now("admin", "Назначение админа");
+
+            PermanentAssignment pa = new PermanentAssignment(user, role, meta);
+            System.out.println("Создано: " + pa.summary());
+            System.out.println("isActive(): " + pa.isActive());
+            System.out.println("type: " + pa.assignmentType());
+
+            pa.revoke();
+            System.out.println("После revoke(): " + pa.isActive());
+            System.out.println("isRevoked(): " + pa.isRevoked());
+        } catch (Exception e) {
+            System.out.println("Ошибка: " + e.getMessage());
+        }
+    }
+
+
+    private static void testTemporaryAssignment() {
+        System.out.println("\nТест 21: TemporaryAssignment");
+
+        try {
+            Role.resetExistingNames();
+
+            User user = User.validate("pudovkinigor", "Pudovkin Igor", "igor@mail.com");
+            Role role = new Role("Editor", "Редактор");
+            AssignmentMetadata meta = AssignmentMetadata.now("admin", "Временный доступ");
+
+            String expires = LocalDateTime.now().plusHours(2).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+            TemporaryAssignment ta = new TemporaryAssignment(user, role, meta, expires, false);
+            System.out.println("Создано: " + ta.summary());
+            System.out.println("isActive(): " + ta.isActive());
+            System.out.println("Осталось: " + ta.getTimeRemaining());
+
+            // Проверка с конкретным временем
+            LocalDateTime future = LocalDateTime.now().plusHours(3);
+            System.out.println("Через 3 часа будет активно? " + ta.isActive(future));
+
+            // Продление
+            String newExpires = LocalDateTime.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            ta.extend(newExpires);
+            System.out.println("После продления: " + ta.summary());
 
         } catch (Exception e) {
             System.out.println("Ошибка: " + e.getMessage());
