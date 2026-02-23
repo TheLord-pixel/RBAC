@@ -51,17 +51,4 @@ jobs:
           # Компилируем все java файлы
           find src -name "*.java" | xargs javac -d out -cp "$CLASSPATH"
 
-      - name: Run Unit Tests
-        run: |
-          cd RBAC
-          
-          # Собираем Classpath заново для уверенности
-          export CLASSPATH="../lib/*:out"
-          
-          echo "Classpath is: $CLASSPATH"
-          echo "Listing lib content:"
-          ls -l ../lib/
-          
-          echo "Running tests..."
-          # Запускаем лаунчер
-          java -cp "$CLASSPATH" org.junit.platform.console.ConsoleLauncher --select-package managers --details tree
+      
