@@ -32,12 +32,13 @@ jobs:
 
       - name: Compile Project
         run: |
+          cd RBAC
+          
           mkdir -p out
-          # Находим ВСЕ .java файлы в папке src (рекурсивно) и компилируем их
-          # Это работает для твоей структуры: src/models, src/filters, src/managers
-          javac -d out -cp "lib/*" $(find src -name "*.java")
+          javac -d out -cp "../lib/*" $(find src -name "*.java")
 
       - name: Run Unit Tests
         run: |
-          # Запускаем тесты из пакета managers
-          java -cp "lib/*:out" org.junit.platform.console.ConsoleLauncher --select-package managers --details tree
+          cd RBAC
+          
+          java -cp "../lib/*:out" org.junit.platform.console.ConsoleLauncher --select-package managers --details tree
