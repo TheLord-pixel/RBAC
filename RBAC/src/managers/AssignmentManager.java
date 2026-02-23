@@ -38,10 +38,6 @@ public class AssignmentManager implements Repository<RoleAssignment> {
             throw new IllegalArgumentException("Роль '" + role.getName() + "' не существует");
         }
 
-        if (hasActiveAssignment(user, role)) {
-            throw new IllegalArgumentException("Пользователю '" + user.username() + "' уже назначена роль '" + role.getName() + "'");
-        }
-
         storage.put(item.assignmentId(), item);
     }
 
@@ -175,11 +171,17 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     }
 
     private boolean hasActiveAssignment(User user, Role role) {
-        return storage.values().stream()
-                .filter(RoleAssignment::isActive)
-                .anyMatch(a -> a.user().equals(user) && a.role().equals(role));
+        for (RoleAssignment assignment : storage.values()) {
+            if (!assignment.isActive()) {
+                continue;
+            }
+            // Сравниваем именно объекты через equals
+            if (assignment.user().equals(user) && assignment.role().equals(role)) {
+                return true;
+            }
+        }
+        return false;
     }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
