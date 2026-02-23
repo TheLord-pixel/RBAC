@@ -23,36 +23,45 @@ jobs:
       - name: Download JUnit 5 Dependencies
         run: |
           mkdir -p lib
-          echo "Скачиваем библиотеки..."
-          wget https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar -O lib/junit-jupiter-api.jar
-          wget https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar -O lib/junit-jupiter-engine.jar
-          wget https://repo1.maven.org/maven2/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar -O lib/junit-platform-commons.jar
-          wget https://repo1.maven.org/maven2/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar -O lib/opentest4j.jar
-          wget https://repo1.maven.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar -O lib/apiguardian-api.jar
-          wget https://repo1.maven.org/maven2/org/junit/platform/junit-platform-launcher/1.10.2/junit-platform-launcher-1.10.2.jar -O lib/junit-platform-launcher.jar
+          echo "Downloading JUnit 5 libraries..."
+          # Скачиваем строго совместимые версии 5.10.2
+          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar -O lib/junit-jupiter-api.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar -O lib/junit-jupiter-engine.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar -O lib/junit-platform-commons.jar
+          wget -q https://repo1.maven.org/maven2/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar -O lib/opentest4j.jar
+          wget -q https://repo1.maven.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar -O lib/apiguardian-api.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-launcher/1.10.2/junit-platform-launcher-1.10.2.jar -O lib/junit-platform-launcher.jar
           
-          echo "Файлы скачаны:"
+          echo "Files downloaded:"
           ls -l lib/
+          
+          # Проверяем, есть ли нужный класс внутри jar-файла
+          echo "Checking for ConsoleLauncher class..."
+          jar tf lib/junit-platform-launcher-1.10.2.jar | grep ConsoleLauncher || echo "Class NOT found in jar!"
 
       - name: Compile Project
         run: |
           cd RBAC
           mkdir -p out
           
-          # Формируем classpath из всех файлов в папке lib (которая в корне)
-          # Используем явный цикл, чтобы избежать проблем со звездочкой
-          CP="../lib/junit-jupiter-api.jar:../lib/junit-jupiter-engine.jar:../lib/junit-platform-commons.jar:../lib/opentest4j.jar:../lib/apiguardian-api.jar:../lib/junit-platform-launcher.jar"
+          # Собираем Classpath: все jar из папки lib (на уровень выше) + папка out
+          export CLASSPATH="../lib/*:out"
           
-          echo "Компилируем файлы..."
-          find src -name "*.java" > sources.txt
-          javac -d out -cp "$CP" @sources.txt
+          echo "Compiling sources..."
+          # Компилируем все java файлы
+          find src -name "*.java" | xargs javac -d out -cp "$CLASSPATH"
 
       - name: Run Unit Tests
         run: |
           cd RBAC
           
-          # Тот же classpath
-          CP="../lib/junit-jupiter-api.jar:../lib/junit-jupiter-engine.jar:../lib/junit-platform-commons.jar:../lib/opentest4j.jar:../lib/apiguardian-api.jar:../lib/junit-platform-launcher.jar"
+          # Собираем Classpath заново для уверенности
+          export CLASSPATH="../lib/*:out"
           
-          echo "Запускаем тесты..."
-          java -cp "$CP:out" org.junit.platform.console.ConsoleLauncher --select-package managers --details tree
+          echo "Classpath is: $CLASSPATH"
+          echo "Listing lib content:"
+          ls -l ../lib/
+          
+          echo "Running tests..."
+          # Запускаем лаунчер
+          java -cp "$CLASSPATH" org.junit.platform.console.ConsoleLauncher --select-package managers --details tree
