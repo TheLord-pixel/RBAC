@@ -20,43 +20,41 @@ jobs:
           java-version: '20'
           distribution: 'temurin'
 
-      - name: Download JUnit 5 Dependencies
+      - name: Download JUnit Console Standalone
         run: |
           mkdir -p lib
-          echo "Downloading JUnit 5 libraries..."
-          # Скачиваем все необходимые JAR-файлы
-          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar -O lib/junit-jupiter-api.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar -O lib/junit-jupiter-engine.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-params/5.10.2/junit-jupiter-params-5.10.2.jar -O lib/junit-jupiter-params.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar -O lib/junit-platform-commons.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-engine/1.10.2/junit-platform-engine-1.10.2.jar -O lib/junit-platform-engine.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-launcher/1.10.2/junit-platform-launcher-1.10.2.jar -O lib/junit-platform-launcher.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console/1.10.2/junit-platform-console-1.10.2.jar -O lib/junit-platform-console.jar
-          wget -q https://repo1.maven.org/maven2/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar -O lib/opentest4j.jar
-          wget -q https://repo1.maven.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar -O lib/apiguardian-api.jar
-          
-          echo "Files downloaded:"
+          # Скачиваем standalone версию (содержит всё необходимое)
+          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.10.2/junit-platform-console-standalone-1.10.2.jar -O lib/junit-platform-console-standalone.jar
+          echo "✅ JUnit Console Standalone downloaded"
           ls -la lib/
 
-      - name: Create output directory
-        run: mkdir -p out
-
-      - name: Compile all Java files (including tests)
+      - name: Show directory structure
         run: |
-          # Формируем classpath
-          export CLASSPATH="lib/*:out"
-          
-          echo "Compiling all Java files from src directory..."
           echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          echo "Looking for RBAC directory:"
+          find . -type d -name "RBAC" | head -5
+
+      - name: Compile Project
+        run: |
+          # Переходим в директорию RBAC (там где src)
+          cd RBAC
+          echo "Now in: $(pwd)"
+          echo "Contents of RBAC directory:"
+          ls -la
           
+          # Создаем директорию для скомпилированных файлов
+          mkdir -p out
+          
+          echo "Compiling Java files from src..."
           # Компилируем все .java файлы из src (включая тесты)
-          find src -name "*.java" | xargs javac -d out -cp "$CLASSPATH"
+          find src -name "*.java" | xargs javac -d out -cp "../lib/*"
           
-          # Проверяем результат компиляции
           if [ $? -eq 0 ]; then
             echo "✅ Compilation successful!"
             echo "Compiled classes:"
-            find out -type f -name "*.class" | head -20
+            find out -type f -name "*.class" | head -10
           else
             echo "❌ Compilation failed!"
             exit 1
@@ -64,14 +62,16 @@ jobs:
 
       - name: Run Tests
         run: |
-          echo "Running JUnit tests..."
+          cd RBAC
+          echo "Running tests from: $(pwd)"
           
           # Создаем директорию для результатов тестов
           mkdir -p test-results
           
-          # Запускаем тесты через JUnit Console Launcher
-          # Важно: указываем правильный classpath
-          java -cp "lib/*:out" org.junit.platform.console.ConsoleLauncher \
+          # Запускаем тесты через standalone JAR
+          # Важно: classpath указывает на скомпилированные классы в out
+          java -jar ../lib/junit-platform-console-standalone.jar \
+            --class-path out \
             --scan-class-path \
             --include-classname='.*Test' \
             --reports-dir=test-results \
@@ -86,8 +86,8 @@ jobs:
           fi
 
       - name: Upload Test Results
-        if: always()  # Загружаем результаты даже если тесты упали
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: test-results/
+          path: RBAC/test-results/
