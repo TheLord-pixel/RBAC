@@ -1,4 +1,4 @@
-name: Java CI - Compile
+name: Java CI - Compile & Test
 
 on:
   push:
@@ -20,49 +20,74 @@ jobs:
           java-version: '20'
           distribution: 'temurin'
 
-      - name: Download JUnit 5 Dependencies (for compilation only)
+      - name: Download JUnit 5 Dependencies
         run: |
           mkdir -p lib
-          echo "Downloading JUnit 5 libraries for compilation..."
-          # Скачиваем только необходимые для компиляции JARы
+          echo "Downloading JUnit 5 libraries..."
+          # Скачиваем все необходимые JAR-файлы
           wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar -O lib/junit-jupiter-api.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar -O lib/junit-jupiter-engine.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-params/5.10.2/junit-jupiter-params-5.10.2.jar -O lib/junit-jupiter-params.jar
           wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar -O lib/junit-platform-commons.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-engine/1.10.2/junit-platform-engine-1.10.2.jar -O lib/junit-platform-engine.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-launcher/1.10.2/junit-platform-launcher-1.10.2.jar -O lib/junit-platform-launcher.jar
+          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console/1.10.2/junit-platform-console-1.10.2.jar -O lib/junit-platform-console.jar
           wget -q https://repo1.maven.org/maven2/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar -O lib/opentest4j.jar
           wget -q https://repo1.maven.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar -O lib/apiguardian-api.jar
           
           echo "Files downloaded:"
           ls -la lib/
 
-      - name: Compile Project
+      - name: Create output directory
+        run: mkdir -p out
+
+      - name: Compile all Java files (including tests)
         run: |
-          # Переходим в директорию RBAC
-          cd RBAC
+          # Формируем classpath
+          export CLASSPATH="lib/*:out"
           
-          # Создаем директорию для скомпилированных файлов
-          mkdir -p out
-          
-          # Формируем classpath с библиотеками (относительный путь)
-          export CLASSPATH="../lib/*:out"
-          
+          echo "Compiling all Java files from src directory..."
           echo "Current directory: $(pwd)"
-          echo "Compiling Java files..."
           
-          # Компилируем все .java файлы из src
-          find src -name "*.java" -print | xargs javac -d out -cp "$CLASSPATH"
+          # Компилируем все .java файлы из src (включая тесты)
+          find src -name "*.java" | xargs javac -d out -cp "$CLASSPATH"
           
           # Проверяем результат компиляции
           if [ $? -eq 0 ]; then
             echo "✅ Compilation successful!"
             echo "Compiled classes:"
-            find out -type f -name "*.class" | head -10
+            find out -type f -name "*.class" | head -20
           else
             echo "❌ Compilation failed!"
             exit 1
           fi
 
-      - name: Upload compilation artifacts (optional)
-        if: always()
+      - name: Run Tests
+        run: |
+          echo "Running JUnit tests..."
+          
+          # Создаем директорию для результатов тестов
+          mkdir -p test-results
+          
+          # Запускаем тесты через JUnit Console Launcher
+          # Важно: указываем правильный classpath
+          java -cp "lib/*:out" org.junit.platform.console.ConsoleLauncher \
+            --scan-class-path \
+            --include-classname='.*Test' \
+            --reports-dir=test-results \
+            --details=tree
+          
+          # Проверяем результат
+          if [ $? -eq 0 ]; then
+            echo "✅ All tests passed!"
+          else
+            echo "❌ Some tests failed!"
+            exit 1
+          fi
+
+      - name: Upload Test Results
+        if: always()  # Загружаем результаты даже если тесты упали
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-classes
-          path: RBAC/out/
+          name: test-results
+          path: test-results/
