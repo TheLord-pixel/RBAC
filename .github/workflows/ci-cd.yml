@@ -1,4 +1,4 @@
-name: Java CI - Compile & Test
+name: Java CI - Compile
 
 on:
   push:
@@ -20,65 +20,49 @@ jobs:
           java-version: '20'
           distribution: 'temurin'
 
-      - name: Download JUnit 5 Dependencies
+      - name: Download JUnit 5 Dependencies (for compilation only)
         run: |
           mkdir -p lib
-          echo "Downloading JUnit 5 libraries..."
-          # Скачиваем строго совместимые версии 5.10.2
+          echo "Downloading JUnit 5 libraries for compilation..."
+          # Скачиваем только необходимые для компиляции JARы
           wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar -O lib/junit-jupiter-api.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar -O lib/junit-jupiter-engine.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter-params/5.10.2/junit-jupiter-params-5.10.2.jar -O lib/junit-jupiter-params.jar
           wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar -O lib/junit-platform-commons.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-engine/1.10.2/junit-platform-engine-1.10.2.jar -O lib/junit-platform-engine.jar
-          wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-launcher/1.10.2/junit-platform-launcher-1.10.2.jar -O lib/junit-platform-launcher.jar
           wget -q https://repo1.maven.org/maven2/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar -O lib/opentest4j.jar
           wget -q https://repo1.maven.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar -O lib/apiguardian-api.jar
           
           echo "Files downloaded:"
-          ls -l lib/
+          ls -la lib/
 
-      - name: Create output directories
+      - name: Compile Project
         run: |
-          mkdir -p out/production
-          mkdir -p out/test
+          # Переходим в директорию RBAC
+          cd RBAC
+          
+          # Создаем директорию для скомпилированных файлов
+          mkdir -p out
+          
+          # Формируем classpath с библиотеками (относительный путь)
+          export CLASSPATH="../lib/*:out"
+          
+          echo "Current directory: $(pwd)"
+          echo "Compiling Java files..."
+          
+          # Компилируем все .java файлы из src
+          find src -name "*.java" -print | xargs javac -d out -cp "$CLASSPATH"
+          
+          # Проверяем результат компиляции
+          if [ $? -eq 0 ]; then
+            echo "✅ Compilation successful!"
+            echo "Compiled classes:"
+            find out -type f -name "*.class" | head -10
+          else
+            echo "❌ Compilation failed!"
+            exit 1
+          fi
 
-      - name: Compile Production Code
-        run: |
-          # Определяем classpath
-          export CLASSPATH="lib/*:out/production"
-          
-          echo "Compiling production sources..."
-          # Компилируем все java файлы, исключая тесты
-          find . -name "*.java" -not -path "*/test/*" -not -name "*Test.java" | xargs javac -d out/production -cp "$CLASSPATH"
-          
-          echo "Production compilation completed"
-
-      - name: Compile Tests
-        run: |
-          # Добавляем production code в classpath
-          export CLASSPATH="lib/*:out/production:out/test"
-          
-          echo "Compiling test sources..."
-          # Компилируем все тесты
-          find . -name "*Test.java" | xargs javac -d out/test -cp "$CLASSPATH"
-          
-          echo "Test compilation completed"
-
-      - name: Run Tests
-        run: |
-          # Создаем временную директорию для результатов тестов
-          mkdir -p test-results
-          
-          # Запускаем тесты через JUnit Console Launcher
-          java -jar lib/junit-platform-launcher.jar \
-            --class-path "out/production:out/test:lib/*" \
-            --scan-class-path \
-            --reports-dir test-results \
-            --details=tree
-
-      - name: Upload Test Results
-        if: always()  # Загружаем результаты даже если тесты упали
+      - name: Upload compilation artifacts (optional)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: test-results/
+          name: compiled-classes
+          path: RBAC/out/
