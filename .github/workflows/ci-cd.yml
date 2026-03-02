@@ -23,7 +23,6 @@ jobs:
       - name: Download JUnit Console Standalone
         run: |
           mkdir -p lib
-          # Скачиваем standalone версию (содержит всё необходимое)
           wget -q https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.10.2/junit-platform-console-standalone-1.10.2.jar -O lib/junit-platform-console-standalone.jar
           echo "✅ JUnit Console Standalone downloaded"
           ls -la lib/
@@ -33,12 +32,11 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Directory contents:"
           ls -la
-          echo "Looking for RBAC directory:"
-          find . -type d -name "RBAC" | head -5
+          echo "Looking for source files:"
+          find . -name "*.java" | head -20
 
       - name: Compile Project
         run: |
-          # Переходим в директорию RBAC (там где src)
           cd RBAC
           echo "Now in: $(pwd)"
           echo "Contents of RBAC directory:"
@@ -47,18 +45,27 @@ jobs:
           # Создаем директорию для скомпилированных файлов
           mkdir -p out
           
-          echo "Compiling Java files from src..."
-          # Компилируем все .java файлы из src (включая тесты)
-          find src -name "*.java" | xargs javac -d out -cp "../lib/*"
+          echo "Compiling all Java files from src..."
+          # Находим все .java файлы и компилируем
+          JAVA_FILES=$(find src -name "*.java")
+          echo "Found $(echo "$JAVA_FILES" | wc -l) Java files"
+          
+          javac -d out -cp "../lib/*" $JAVA_FILES
           
           if [ $? -eq 0 ]; then
             echo "✅ Compilation successful!"
             echo "Compiled classes:"
-            find out -type f -name "*.class" | head -10
+            find out -type f -name "*.class" | wc -l | xargs echo "Number of class files:"
           else
             echo "❌ Compilation failed!"
             exit 1
           fi
+
+      - name: List compiled test classes
+        run: |
+          cd RBAC
+          echo "Test classes compiled:"
+          find out -name "*Test.class" | sed 's/out\///' | sed 's/\.class//' | sed 's/\//./g'
 
       - name: Run Tests
         run: |
@@ -69,7 +76,6 @@ jobs:
           mkdir -p test-results
           
           # Запускаем тесты через standalone JAR
-          # Важно: classpath указывает на скомпилированные классы в out
           java -jar ../lib/junit-platform-console-standalone.jar \
             --class-path out \
             --scan-class-path \
@@ -77,12 +83,20 @@ jobs:
             --reports-dir=test-results \
             --details=tree
           
-          # Проверяем результат
-          if [ $? -eq 0 ]; then
+          TEST_RESULT=$?
+          
+          # Показываем краткий отчет
+          echo ""
+          echo "📊 Test Results Summary:"
+          if [ -f test-results/TEST-junit-jupiter.xml ]; then
+            echo "Test results saved to test-results/"
+          fi
+          
+          if [ $TEST_RESULT -eq 0 ]; then
             echo "✅ All tests passed!"
           else
             echo "❌ Some tests failed!"
-            exit 1
+            exit $TEST_RESULT
           fi
 
       - name: Upload Test Results
@@ -91,3 +105,10 @@ jobs:
         with:
           name: test-results
           path: RBAC/test-results/
+
+      - name: Upload Compiled Classes (for debugging)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-classes
+          path: RBAC/out/
