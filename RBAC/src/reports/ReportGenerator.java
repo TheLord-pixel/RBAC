@@ -7,6 +7,7 @@ import models.User;
 import models.Role;
 import models.RoleAssignment;
 import models.Permission;
+import models.TemporaryAssignment;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -40,8 +41,8 @@ public class ReportGenerator {
                     sb.append("│     • ").append(ra.role().getName())
                             .append(" (").append(status).append(")");
 
-                    if (!ra.isPermanent()) {
-                        sb.append(" - истекает: ").append(((models.TemporaryAssignment) ra).getExpiresAt());
+                    if (ra instanceof TemporaryAssignment) {
+                        sb.append(" - истекает: ").append(((TemporaryAssignment) ra).getExpiresAt());
                     }
                     sb.append("\n");
                 }
@@ -75,7 +76,7 @@ public class ReportGenerator {
             } else {
                 sb.append("│   Права:\n");
                 for (Permission p : permissions) {
-                    sb.append("│     • ").append(p.action())
+                    sb.append("│     • ").append(p.name())
                             .append(" на ").append(p.resource())
                             .append(" (").append(p.description()).append(")\n");
                 }
@@ -115,7 +116,7 @@ public class ReportGenerator {
             for (RoleAssignment ra : assignments) {
                 if (ra.isActive()) {
                     for (Permission p : ra.role().getPermissions()) {
-                        String key = p.resource() + ":" + p.action();
+                        String key = p.resource() + ":" + p.name();
                         resources.add(key);
                         allResources.add(p.resource());
                     }
