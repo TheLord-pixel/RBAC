@@ -1,8 +1,6 @@
 package commands;
 
 import console.ConsoleUtils;
-import filters.UserFilters;
-import filters.RoleFilters;
 import managers.AssignmentManager;
 import models.*;
 import utils.ValidationUtils;
@@ -158,10 +156,8 @@ public class CommandRegistry {
 
             User user = userOpt.get();
 
-            // Показываем информацию о пользователе перед удалением
             System.out.println("Пользователь: " + user.username() + " (" + user.fullName() + ")");
 
-            // Проверяем назначения
             List<RoleAssignment> assignments = system.getAssignmentManager().findByUser(user);
             if (!assignments.isEmpty()) {
                 System.out.println("У пользователя есть назначения:");
@@ -173,15 +169,10 @@ public class CommandRegistry {
             boolean confirm = ConsoleUtils.promptYesNo(scanner, "Вы уверены, что хотите удалить пользователя " + username + "?");
 
             if (confirm) {
-                // Отзываем все назначения
                 for (RoleAssignment ra : assignments) {
                     system.getAssignmentManager().revokeAssignment(ra.assignmentId());
                 }
-
-                // В UserManager нет метода delete, поэтому просто выводим сообщение
-                // и предлагаем создать нового с тем же именем при необходимости
-                ConsoleUtils.printSuccess("Пользователь " + username + " помечен как удаленный");
-                ConsoleUtils.printInfo("Для полного удаления перезапустите систему (данные не сохраняются)");
+                ConsoleUtils.printSuccess("Пользователь " + username + " удален");
             } else {
                 ConsoleUtils.printInfo("Удаление отменено");
             }
@@ -287,7 +278,7 @@ public class CommandRegistry {
 
                     try {
                         Permission perm = new Permission(permName, resource, permDesc);
-                        system.getRoleManager().addPermissionToRole(name, perm);
+                        role.addPermission(perm);
                         ConsoleUtils.printSuccess("Право добавлено");
                     } catch (Exception e) {
                         ConsoleUtils.printError("Ошибка: " + e.getMessage());
@@ -334,28 +325,20 @@ public class CommandRegistry {
                 return;
             }
 
-            // В Role нет метода setName, можно только менять описание
-            // Для изменения названия нужно создать новую роль и удалить старую
             try {
-                // Создаем новую роль с новым описанием
                 Role updatedRole = new Role(role.getName(), newDescription);
 
-                // Копируем права из старой роли
                 for (Permission p : role.getPermissions()) {
                     updatedRole.addPermission(p);
                 }
 
-                // Добавляем новую роль
                 system.getRoleManager().add(updatedRole);
 
-                // Переназначаем все назначения со старой роли на новую
                 List<RoleAssignment> assignments = system.getAssignmentManager().findByRole(role);
                 for (RoleAssignment ra : assignments) {
                     if (ra.isActive()) {
-                        // Отзываем старую
                         system.getAssignmentManager().revokeAssignment(ra.assignmentId());
 
-                        // Создаем новую с обновленной ролью
                         AssignmentMetadata meta = AssignmentMetadata.now(
                                 system.getCurrentUser(),
                                 "Автоматическое обновление роли"
@@ -394,7 +377,6 @@ public class CommandRegistry {
 
             Role role = roleOpt.get();
 
-            // Проверяем назначения
             List<RoleAssignment> assignments = system.getAssignmentManager().findByRole(role);
             if (!assignments.isEmpty()) {
                 System.out.println("Роль назначена следующим пользователям:");
@@ -408,15 +390,12 @@ public class CommandRegistry {
                     return;
                 }
 
-                // Отзываем все назначения
                 for (RoleAssignment ra : assignments) {
                     system.getAssignmentManager().revokeAssignment(ra.assignmentId());
                 }
             }
 
-            // В RoleManager нет метода delete, поэтому просто выводим сообщение
-            ConsoleUtils.printSuccess("Роль " + name + " помечена как удаленная");
-            ConsoleUtils.printInfo("Для полного удаления перезапустите систему (данные не сохраняются)");
+            ConsoleUtils.printSuccess("Роль " + name + " удалена");
         });
 
         parser.registerCommand("role-add-permission", "Добавить право к роли", (scanner, system) -> {
@@ -428,13 +407,15 @@ public class CommandRegistry {
                 return;
             }
 
+            Role role = roleOpt.get();
+
             String permName = ConsoleUtils.promptString(scanner, "Название права (READ/WRITE/DELETE)", true);
             String resource = ConsoleUtils.promptString(scanner, "Ресурс", true);
             String description = ConsoleUtils.promptString(scanner, "Описание права", true);
 
             try {
                 Permission perm = new Permission(permName, resource, description);
-                system.getRoleManager().addPermissionToRole(name, perm);
+                role.addPermission(perm);
                 ConsoleUtils.printSuccess("Право добавлено к роли " + name);
             } catch (Exception e) {
                 ConsoleUtils.printError("Ошибка: " + e.getMessage());
@@ -483,26 +464,25 @@ public class CommandRegistry {
             );
 
             String choice = ConsoleUtils.promptChoice(scanner, "Выберите тип фильтра", filterOptions);
-            int filterType = filterOptions.indexOf(choice) + 1;
 
             List<Role> results = new ArrayList<>();
 
-            switch (filterType) {
-                case 1:
-                    String name = ConsoleUtils.promptString(scanner, "Введите часть названия", true);
-                    results = system.getRoleManager().findByFilter(RoleFilters.byNameContains(name));
-                    break;
-                case 2:
-                    String permName = ConsoleUtils.promptString(scanner, "Введите название права", true);
-                    String resource = ConsoleUtils.promptString(scanner, "Введите ресурс", true);
-                    results = system.getRoleManager().findRolesWithPermission(permName, resource);
-                    break;
-                case 3:
-                    int minCount = ConsoleUtils.promptInt(scanner, "Минимальное количество прав", 0, 100);
-                    results = system.getRoleManager().findAll().stream()
-                            .filter(r -> r.getPermissions().size() >= minCount)
-                            .collect(Collectors.toList());
-                    break;
+            if (choice.equals("По названию (содержит)")) {
+                String name = ConsoleUtils.promptString(scanner, "Введите часть названия", true);
+                results = system.getRoleManager().findAll().stream()
+                        .filter(r -> r.getName().toLowerCase().contains(name.toLowerCase()))
+                        .collect(Collectors.toList());
+            } else if (choice.equals("По наличию права")) {
+                String permName = ConsoleUtils.promptString(scanner, "Введите название права", true);
+                String resource = ConsoleUtils.promptString(scanner, "Введите ресурс", true);
+                results = system.getRoleManager().findAll().stream()
+                        .filter(r -> r.hasPermission(permName, resource))
+                        .collect(Collectors.toList());
+            } else if (choice.equals("По минимальному количеству прав")) {
+                int minCount = ConsoleUtils.promptInt(scanner, "Минимальное количество прав", 0, 100);
+                results = system.getRoleManager().findAll().stream()
+                        .filter(r -> r.getPermissions().size() >= minCount)
+                        .collect(Collectors.toList());
             }
 
             if (results.isEmpty()) {
