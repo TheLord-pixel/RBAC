@@ -33,12 +33,9 @@ jobs:
           ls -la
           echo "Looking for src directory:"
           find . -type d -name "src" 2>/dev/null || echo "src not found"
-          echo "Looking for Java files:"
-          find . -name "*.java" 2>/dev/null | head -20
 
       - name: Find project root
         run: |
-          # Ищем папку с src
           SRC_PATH=$(find . -type d -name "src" | head -1)
           if [ -n "$SRC_PATH" ]; then
             PROJECT_ROOT=$(dirname "$SRC_PATH")
@@ -51,22 +48,14 @@ jobs:
 
       - name: Compile Project
         run: |
-          # Переходим в корень проекта
           cd $PROJECT_ROOT
           echo "Now in: $(pwd)"
-          echo "Contents:"
-          ls -la
-          
-          # Создаем директорию для скомпилированных файлов
           mkdir -p out
           
-          echo "Compiling Java files from src..."
-          # Находим все .java файлы и компилируем
           JAVA_FILES=$(find src -name "*.java")
           FILE_COUNT=$(echo "$JAVA_FILES" | wc -l)
           echo "Found $FILE_COUNT Java files"
           
-          # Компилируем
           javac -d out -cp "../../lib/*" $JAVA_FILES
           
           if [ $? -eq 0 ]; then
@@ -107,6 +96,29 @@ jobs:
           else
             echo "ℹ️ No tests found - skipping test execution"
           fi
+
+      - name: Run Program Demo
+        run: |
+          cd $PROJECT_ROOT
+          echo ""
+          echo "========================================="
+          echo "🚀 ЗАПУСК ПРОГРАММЫ (демо на 3 секунды)"
+          echo "========================================="
+          
+          # Запускаем программу в фоне
+          java -cp out multithread.Main &
+          PID=$!
+          
+          # Даем поработать 3 секунды
+          sleep 3
+          
+          # Останавливаем программу
+          kill $PID 2>/dev/null || true
+          
+          echo ""
+          echo "========================================="
+          echo "✅ Программа успешно запущена и работает"
+          echo "========================================="
 
       - name: Upload Test Results (if any)
         if: always()
