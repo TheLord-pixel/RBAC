@@ -119,4 +119,11 @@ public class RoleManager implements Repository<Role> {
     public int hashCode() {
         return Objects.hash(storageById);
     }
+
+    public List<Role> findByFilterParallel(RoleFilter filter) {
+        if (filter == null) return findAll();
+        return storageById.values().parallelStream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
 }

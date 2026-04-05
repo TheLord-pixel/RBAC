@@ -101,4 +101,11 @@ public class UserManager implements Repository<User> {
     public int hashCode() {
         return Objects.hash(storage);
     }
+
+    public List<User> findByFilterParallel(UserFilter filter) {
+        if (filter == null) return findAll();
+        return storage.values().parallelStream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
 }
