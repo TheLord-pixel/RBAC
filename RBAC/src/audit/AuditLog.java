@@ -47,17 +47,18 @@ public class AuditLog {
         consumerThread.start();
     }
 
+    // Асинхронное логирование (через очередь)
     public void log(String action, String performer, String target, String details) {
         String timestamp = LocalDateTime.now().format(FORMATTER);
         AuditEntry entry = new AuditEntry(timestamp, action, performer, target, details);
 
-        // Добавляем в очередь для асинхронной обработки
         boolean offered = queue.offer(entry);
         if (!offered) {
             System.err.println("Очередь аудит лога переполнена, запись потеряна: " + entry);
         }
     }
 
+    // Синхронное логирование (добавлено для тестов)
     public void logSync(String action, String performer, String target, String details) {
         String timestamp = LocalDateTime.now().format(FORMATTER);
         AuditEntry entry = new AuditEntry(timestamp, action, performer, target, details);

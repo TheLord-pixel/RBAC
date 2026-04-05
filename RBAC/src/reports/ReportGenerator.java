@@ -58,6 +58,7 @@ public class ReportGenerator {
         return sb.toString();
     }
 
+    // НОВЫЙ МЕТОД: параллельная генерация отчета по пользователям
     public String generateUserReportParallel(UserManager userManager, AssignmentManager assignmentManager) {
         StringBuilder sb = new StringBuilder();
 
@@ -216,6 +217,7 @@ public class ReportGenerator {
         return sb.toString();
     }
 
+    // НОВЫЙ МЕТОД: параллельная генерация матрицы прав
     public String generatePermissionMatrixParallel(UserManager userManager, AssignmentManager assignmentManager) {
         StringBuilder sb = new StringBuilder();
 
