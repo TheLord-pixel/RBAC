@@ -7,6 +7,7 @@ import models.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 public class RBACSystem {
@@ -14,12 +15,16 @@ public class RBACSystem {
     private RoleManager roleManager;
     private AssignmentManager assignmentManager;
     private String currentUser;
+    private ScheduledExecutorService scheduler;
+    private boolean schedulerRunning;
 
     public RBACSystem() {
         this.userManager = new UserManager();
         this.roleManager = new RoleManager();
         this.assignmentManager = new AssignmentManager(userManager, roleManager);
         this.currentUser = "system";
+        this.scheduler = Executors.newSingleThreadScheduledExecutor();
+        this.schedulerRunning = false;
     }
 
     public UserManager getUserManager() {
@@ -85,6 +90,66 @@ public class RBACSystem {
         assignmentManager.add(assignment);
 
         setCurrentUser("admin");
+
+        // Запускаем периодическую задачу
+        startScheduledTask();
+    }
+
+    private void startScheduledTask() {
+        if (schedulerRunning) return;
+
+        schedulerRunning = true;
+
+        // Задача выполняется каждые 30 секунд
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                // Находим истекшие временные назначения
+                List<RoleAssignment> allAssignments = assignmentManager.findAll();
+                List<TemporaryAssignment> expiredAssignments = new ArrayList<>();
+
+                for (RoleAssignment ra : allAssignments) {
+                    if (ra instanceof TemporaryAssignment temp && ra.isActive()) {
+                        if (!temp.isActive()) {
+                            expiredAssignments.add(temp);
+                        }
+                    }
+                }
+
+                // Помечаем истекшие как неактивные (если есть)
+                if (!expiredAssignments.isEmpty()) {
+                    for (TemporaryAssignment temp : expiredAssignments) {
+                        // Отзываем истекшее назначение
+                        assignmentManager.revokeAssignment(temp.assignmentId());
+                    }
+
+                    System.out.println("[Scheduler] Помечено как неактивные " + expiredAssignments.size() + " истекших назначений");
+                }
+
+                // Логируем статистику
+                System.out.println("[Scheduler] Статистика: Пользователей=" + userManager.count() +
+                        ", Ролей=" + roleManager.count() +
+                        ", Назначений=" + assignmentManager.count());
+
+            } catch (Exception e) {
+                System.err.println("[Scheduler] Ошибка: " + e.getMessage());
+            }
+        }, 10, 30, TimeUnit.SECONDS); // задержка 10 сек, интервал 30 сек
+    }
+
+    public void stopScheduledTask() {
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdown();
+            try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+            schedulerRunning = false;
+            System.out.println("[Scheduler] Периодическая задача остановлена");
+        }
     }
 
     public String generateStatistics() {
