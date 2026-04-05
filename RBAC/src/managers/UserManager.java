@@ -4,13 +4,15 @@ import filters.UserFilter;
 import models.User;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class UserManager implements Repository<User> {
     private final Map<String, User> storage;
 
     public UserManager() {
-        this.storage = new HashMap<>();
+        this.storage = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -18,16 +20,16 @@ public class UserManager implements Repository<User> {
         if (user == null) {
             throw new IllegalArgumentException("Пользователь не может быть null");
         }
-        if (storage.containsKey(user.username())) {
+        User previous = storage.putIfAbsent(user.username(), user);
+        if (previous != null) {
             throw new IllegalArgumentException("Пользователь с именем '" + user.username() + "' уже существует");
         }
-        storage.put(user.username(), user);
     }
 
     @Override
     public boolean remove(User user) {
         if (user == null) return false;
-        return storage.remove(user.username()) != null;
+        return storage.remove(user.username(), user);
     }
 
     @Override
@@ -37,7 +39,7 @@ public class UserManager implements Repository<User> {
 
     @Override
     public List<User> findAll() {
-        return new ArrayList<>(storage.values());
+        return new CopyOnWriteArrayList<>(storage.values());
     }
 
     @Override

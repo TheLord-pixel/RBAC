@@ -6,6 +6,8 @@ import models.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 public class AssignmentManager implements Repository<RoleAssignment> {
@@ -14,7 +16,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     private final RoleManager roleManager;
 
     public AssignmentManager(UserManager userManager, RoleManager roleManager) {
-        this.storage = new HashMap<>();
+        this.storage = new ConcurrentHashMap<>();
         this.userManager = userManager;
         this.roleManager = roleManager;
     }
@@ -24,7 +26,8 @@ public class AssignmentManager implements Repository<RoleAssignment> {
         if (item == null) {
             throw new IllegalArgumentException("Назначение не может быть null");
         }
-        if (storage.containsKey(item.assignmentId())) {
+        RoleAssignment previous = storage.putIfAbsent(item.assignmentId(), item);
+        if (previous != null) {
             throw new IllegalArgumentException("Назначение с ID '" + item.assignmentId() + "' уже существует");
         }
 
@@ -32,19 +35,19 @@ public class AssignmentManager implements Repository<RoleAssignment> {
         Role role = item.role();
 
         if (!userManager.exists(user.username())) {
+            storage.remove(item.assignmentId());
             throw new IllegalArgumentException("Пользователь '" + user.username() + "' не существует");
         }
         if (!roleManager.exists(role.getName())) {
+            storage.remove(item.assignmentId());
             throw new IllegalArgumentException("Роль '" + role.getName() + "' не существует");
         }
-
-        storage.put(item.assignmentId(), item);
     }
 
     @Override
     public boolean remove(RoleAssignment item) {
         if (item == null) return false;
-        return storage.remove(item.assignmentId()) != null;
+        return storage.remove(item.assignmentId(), item);
     }
 
     @Override
@@ -54,7 +57,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
 
     @Override
     public List<RoleAssignment> findAll() {
-        return new ArrayList<>(storage.values());
+        return new CopyOnWriteArrayList<>(storage.values());
     }
 
     @Override
@@ -125,7 +128,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     }
 
     public Set<Permission> getUserPermissions(User user) {
-        Set<Permission> permissions = new HashSet<>();
+        Set<Permission> permissions = ConcurrentHashMap.newKeySet();
         storage.values().stream()
                 .filter(RoleAssignment::isActive)
                 .filter(a -> a.user().equals(user))
@@ -175,13 +178,13 @@ public class AssignmentManager implements Repository<RoleAssignment> {
             if (!assignment.isActive()) {
                 continue;
             }
-            // Сравниваем именно объекты через equals
             if (assignment.user().equals(user) && assignment.role().equals(role)) {
                 return true;
             }
         }
         return false;
     }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
