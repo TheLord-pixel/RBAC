@@ -813,6 +813,46 @@ public class CommandRegistry {
             }
         });
 
+        parser.registerCommand("report-users-async", "Запустить генерацию отчета в фоне", (scanner, system) -> {
+            ConsoleUtils.printInfo("Запуск генерации отчета в фоновом режиме...");
+
+            BackgroundExecutor.getInstance().submit(() -> {
+                try {
+                    reports.ReportGenerator generator = new reports.ReportGenerator();
+                    String report = generator.generateUserReport(system.getUserManager(), system.getAssignmentManager());
+                    generator.exportToFile(report, "user_report_async.txt");
+                    ConsoleUtils.printSuccess("Отчет сохранен в файл: user_report_async.txt");
+                } catch (Exception e) {
+                    ConsoleUtils.printError("Ошибка при генерации отчета: " + e.getMessage());
+                }
+            });
+
+            ConsoleUtils.printSuccess("Задача отправлена в фоновый режим");
+        });
+
+        parser.registerCommand("save-async", "Сохранить данные в файл в фоне", (scanner, system) -> {
+            String filename = ConsoleUtils.promptString(scanner, "Введите имя файла для сохранения", true);
+
+            ConsoleUtils.printInfo("Сохранение данных в фоновом режиме...");
+
+            BackgroundExecutor.getInstance().submit(() -> {
+                try {
+                    // Сохраняем пользователей
+                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(filename + "_users.txt"));
+                    for (User user : system.getUserManager().findAll()) {
+                        writer.println(user.username() + "," + user.fullName() + "," + user.email());
+                    }
+                    writer.close();
+
+                    ConsoleUtils.printSuccess("Данные сохранены в файл: " + filename + "_users.txt");
+                } catch (Exception e) {
+                    ConsoleUtils.printError("Ошибка при сохранении: " + e.getMessage());
+                }
+            });
+
+            ConsoleUtils.printSuccess("Задача сохранения отправлена в фоновый режим");
+        });
+
         // ==================== СЛУЖЕБНЫЕ КОМАНДЫ ====================
 
         parser.registerCommand("help", "Показать справку по командам", (scanner, system) -> {
@@ -834,6 +874,46 @@ public class CommandRegistry {
                 System.out.println("До свидания!");
                 System.exit(0);
             }
+        });
+
+        parser.registerCommand("report-users-async", "Запустить генерацию отчета в фоне", (scanner, system) -> {
+            ConsoleUtils.printInfo("Запуск генерации отчета в фоновом режиме...");
+
+            BackgroundExecutor.getInstance().submit(() -> {
+                try {
+                    reports.ReportGenerator generator = new reports.ReportGenerator();
+                    String report = generator.generateUserReport(system.getUserManager(), system.getAssignmentManager());
+                    generator.exportToFile(report, "user_report_async.txt");
+                    ConsoleUtils.printSuccess("Отчет сохранен в файл: user_report_async.txt");
+                } catch (Exception e) {
+                    ConsoleUtils.printError("Ошибка при генерации отчета: " + e.getMessage());
+                }
+            });
+
+            ConsoleUtils.printSuccess("Задача отправлена в фоновый режим");
+        });
+
+        parser.registerCommand("save-async", "Сохранить данные в файл в фоне", (scanner, system) -> {
+            String filename = ConsoleUtils.promptString(scanner, "Введите имя файла для сохранения", true);
+
+            ConsoleUtils.printInfo("Сохранение данных в фоновом режиме...");
+
+            BackgroundExecutor.getInstance().submit(() -> {
+                try {
+                    // Сохраняем пользователей
+                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(filename + "_users.txt"));
+                    for (User user : system.getUserManager().findAll()) {
+                        writer.println(user.username() + "," + user.fullName() + "," + user.email());
+                    }
+                    writer.close();
+
+                    ConsoleUtils.printSuccess("Данные сохранены в файл: " + filename + "_users.txt");
+                } catch (Exception e) {
+                    ConsoleUtils.printError("Ошибка при сохранении: " + e.getMessage());
+                }
+            });
+
+            ConsoleUtils.printSuccess("Задача сохранения отправлена в фоновый режим");
         });
     }
 }
