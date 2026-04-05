@@ -197,4 +197,11 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     public int hashCode() {
         return Objects.hash(storage);
     }
+
+    public List<RoleAssignment> findByFilterParallel(AssignmentFilter filter) {
+        if (filter == null) return findAll();
+        return storage.values().parallelStream()
+                .filter(filter::test)
+                .collect(Collectors.toList());
+    }
 }

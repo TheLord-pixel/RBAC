@@ -25,16 +25,13 @@ class ManagersTest {
 
     @BeforeEach
     void setUp() {
-        // Критически важно: сбрасываем статический список занятых имен ролей
         Role.resetExistingNames();
 
-        // Создаем новые чистые экземпляры менеджеров для каждого теста
         userManager = new UserManager();
         roleManager = new RoleManager();
         assignmentManager = new AssignmentManager(userManager, roleManager);
     }
 
-    // ================= USER MANAGER TESTS =================
 
     @Test
     @DisplayName("UserManager: добавление и поиск пользователя")
@@ -108,7 +105,6 @@ class ManagersTest {
         assertEquals("new@test.com", updated.get().email());
     }
 
-    // ================= ROLE MANAGER TESTS =================
 
     @Test
     @DisplayName("RoleManager: добавление и поиск роли")
@@ -183,7 +179,6 @@ class ManagersTest {
         assertEquals(2, roles.size());
     }
 
-    // ================= ASSIGNMENT MANAGER TESTS =================
 
     @Test
     @DisplayName("AssignmentManager: добавление назначения")
@@ -212,14 +207,11 @@ class ManagersTest {
 
         User user = User.validate(uName, "Dup User", "d@u.com");
 
-        // ВАЖНО: Создаем роль ОДИН РАЗ
         Role role = new Role(rName, "Duplicate Test Role");
 
-        // 2. Добавляем в менеджеры
         userManager.add(user);
         roleManager.add(role);
 
-        // Проверка: убедимся, что они добавлены
         if (!userManager.exists(uName)) {
             fail("Пользователь не добавлен в userManager");
         }
@@ -227,20 +219,15 @@ class ManagersTest {
             fail("Роль не добавлена в roleManager");
         }
 
-        // 3. Первое назначение
         AssignmentMetadata meta1 = AssignmentMetadata.now("admin", "First");
         PermanentAssignment pa1 = new PermanentAssignment(user, role, meta1);
 
-        // Добавляем первое. Если тут ошибка - значит менеджеры рассинхронизированы
         assignmentManager.add(pa1);
 
-        // Проверка: точно ли добавилось?
         if (assignmentManager.count() != 1) {
             fail("Первое назначение не добавлено в хранилище. Текущий размер: " + assignmentManager.count());
         }
 
-        // 4. Второе назначение
-        // ВАЖНО: Используем ТЕ ЖЕ САМЫЕ переменные user и role (ссылки на те же объекты)
         AssignmentMetadata meta2 = AssignmentMetadata.now("admin", "Second");
         PermanentAssignment pa2 = new PermanentAssignment(user, role, meta2);
     }
@@ -278,12 +265,10 @@ class ManagersTest {
         Role role = new Role("Active_Test_Role", "ATR");
         roleManager.add(role);
 
-        // Активное постоянное назначение
         AssignmentMetadata m1 = AssignmentMetadata.now("admin", "Permanent");
         PermanentAssignment pa = new PermanentAssignment(user, role, m1);
         assignmentManager.add(pa);
 
-        // Истекшее временное назначение
         String expiredDate = LocalDateTime.now().minusHours(5).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         AssignmentMetadata m2 = AssignmentMetadata.now("admin", "Expired");
         TemporaryAssignment ta = new TemporaryAssignment(user, role, m2, expiredDate, false);
@@ -358,7 +343,6 @@ class ManagersTest {
         String newExpires = LocalDateTime.now().plusDays(5).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         assignmentManager.extendTemporaryAssignment(ta.assignmentId(), newExpires);
 
-        // Проверяем, что дата обновилась и назначение активно даже через 1 час (который был бы критичен для 10 мин)
         LocalDateTime checkTime = LocalDateTime.now().plusHours(1);
         assertTrue(ta.isActive(checkTime));
     }
